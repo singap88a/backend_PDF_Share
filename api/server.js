@@ -65,27 +65,70 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// اتصال MongoDB (يعمل داخل Vercel أيضًا)
+// اتصال MongoDB مع caching
+let cachedDb = null;
+
 async function connectDB() {
   if (!process.env.MONGODB_URI) {
     console.warn('⚠️ No MongoDB URI found');
-    return;
+    return null;
   }
 
-  if (mongoose.connection.readyState === 1) return; // متصل بالفعل
+  // إذا كان الاتصال موجود بالفعل
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  // إذا كان لدينا اتصال مخزن
+  if (cachedDb) {
+    return cachedDb;
+  }
 
   try {
+    console.log('🔄 Connecting to MongoDB...');
+    
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000, // زيادة المهلة
+      socketTimeoutMS: 45000, // زيادة مهلة السوكيت
+      maxPoolSize: 10, // تقليل حجم الـ pool
+    });
+
+    cachedDb = mongoose.connection;
+    
+    // معالجة الأخطاء
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB connection error:', err);
+      cachedDb = null;
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.log('🔌 MongoDB disconnected');
+      cachedDb = null;
     });
 
     console.log('✅ MongoDB Connected');
+    return mongoose.connection;
   } catch (err) {
-    console.error('❌ MongoDB Connection Error:', err);
+    console.error('❌ MongoDB Connection Error:', err.message);
+    throw err;
   }
 }
+
+// Middleware لضمان اتصال قاعدة البيانات
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    res.status(500).json({ 
+      error: 'Database connection failed',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
 
 // تشغيل السيرفر محليًا فقط
 if (process.env.NODE_ENV === 'development') {
@@ -98,8 +141,23 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// Vercel يستدعي هذا بشكل Serverless بدون listen()
+// Handler for Vercel Serverless Functions
 export default async function handler(req, res) {
-  await connectDB();
-  return app(req, res);
+  try {
+    // الاتصال بقاعدة البيانات أولاً
+    await connectDB();
+    
+    // معالجة الطلب
+    return app(req, res);
+  } catch (error) {
+    console.error('❌ Serverless Function Error:', error);
+    
+    // إرسال رد خطأ مناسب
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  }
 }

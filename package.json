@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node api/server.js",
-    "dev": "node --watch api/server.js",
-        "build": "npm install"
+    "dev": "nodemon api/server.js",
+    "build": "echo 'Build complete'",
+    "vercel-build": "npm install"
   },
   "keywords": [
     "pdf",
@@ -24,5 +25,11 @@
     "mongoose": "^8.0.3",
     "multer": "^1.4.5-lts.1",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
