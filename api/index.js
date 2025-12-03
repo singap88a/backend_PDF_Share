@@ -86,7 +86,7 @@ async function connectDB() {
 
   try {
     console.log('🔄 Connecting to MongoDB...');
-    
+
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
@@ -96,7 +96,7 @@ async function connectDB() {
     });
 
     cachedDb = mongoose.connection;
-    
+
     // معالجة الأخطاء
     mongoose.connection.on('error', (err) => {
       console.error('❌ MongoDB connection error:', err);
@@ -123,7 +123,7 @@ app.use(async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Database connection failed:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Database connection failed',
       message: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -146,12 +146,12 @@ export default async function handler(req, res) {
   try {
     // الاتصال بقاعدة البيانات أولاً
     await connectDB();
-    
+
     // معالجة الطلب
     return app(req, res);
   } catch (error) {
     console.error('❌ Serverless Function Error:', error);
-    
+
     // إرسال رد خطأ مناسب
     if (!res.headersSent) {
       res.status(500).json({

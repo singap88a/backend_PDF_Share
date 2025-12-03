@@ -2,11 +2,11 @@
   "name": "pdf-sharing-backend",
   "version": "1.0.0",
   "description": "Backend server for PDF sharing application",
-  "main": "api/server.js",
+  "main": "api/index.js",
   "type": "module",
   "scripts": {
-    "start": "node api/server.js",
-    "dev": "nodemon api/server.js",
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
     "build": "echo 'Build complete'",
     "vercel-build": "npm install"
   },
