@@ -18,15 +18,16 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
     const fileUrl = `${req.protocol}://${req.get('host')}/api/files/view/${fileId}`;
     const downloadUrl = `${req.protocol}://${req.get('host')}/api/files/download/${fileId}`;
 
-    // Save file metadata to database
+    // Save file data as Buffer in database
     const fileData = new File({
       filename: req.file.originalname,
-      storedFilename: req.file.filename,
+      storedFilename: fileId, // Use fileId as stored filename
       size: req.file.size,
       uploadedAt: new Date(),
       url: fileUrl, // رابط العرض في المتصفح
       downloadUrl: downloadUrl, // رابط التنزيل
       fileId: fileId,
+      fileBuffer: req.file.buffer, // Store file buffer in database
     });
 
     await fileData.save();
@@ -44,12 +45,6 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    
-    // Delete uploaded file if database save fails
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
-    
     res.status(500).json({ error: 'Failed to upload file' });
   }
 });
@@ -105,21 +100,15 @@ router.get('/:id', async (req, res) => {
 router.get('/view/:id', async (req, res) => {
   try {
     const file = await File.findOne({ fileId: req.params.id });
-    
+
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    const filePath = path.join(process.cwd(), 'uploads', file.storedFilename);
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found on server' });
-    }
-
-    // Set headers to display PDF in browser instead of downloading
+    // Send file buffer from database
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(file.filename) + '"');
-    res.sendFile(filePath);
+    res.send(file.fileBuffer);
   } catch (error) {
     console.error('View error:', error);
     res.status(500).json({ error: 'Failed to view file' });
@@ -130,21 +119,15 @@ router.get('/view/:id', async (req, res) => {
 router.get('/download/:id', async (req, res) => {
   try {
     const file = await File.findOne({ fileId: req.params.id });
-    
+
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
-    }
-
-    const filePath = path.join(process.cwd(), 'uploads', file.storedFilename);
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found on server' });
     }
 
     // Set headers to force download
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="' + encodeURIComponent(file.filename) + '"');
-    res.sendFile(filePath);
+    res.send(file.fileBuffer);
   } catch (error) {
     console.error('Download error:', error);
     res.status(500).json({ error: 'Failed to download file' });
@@ -155,18 +138,12 @@ router.get('/download/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const file = await File.findOne({ fileId: req.params.id });
-    
+
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Delete physical file
-    const filePath = path.join(process.cwd(), 'uploads', file.storedFilename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    // Delete from database
+    // Delete from database (no physical file to delete since it's stored in DB)
     await File.deleteOne({ fileId: req.params.id });
 
     res.json({ success: true, message: 'File deleted successfully' });

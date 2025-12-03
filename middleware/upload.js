@@ -9,17 +9,8 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueId = uuidv4();
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueId}${ext}`);
-  },
-});
+// Configure storage to memory
+const storage = multer.memoryStorage();
 
 // File filter - only accept PDFs
 const fileFilter = (req, file, cb) => {

@@ -31,6 +31,10 @@ const fileSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  fileBuffer: {
+    type: Buffer,
+    required: true,
+  },
 });
 
 const File = mongoose.model('File', fileSchema);
